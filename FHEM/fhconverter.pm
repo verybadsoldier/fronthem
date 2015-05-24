@@ -496,5 +496,65 @@ sub UserCode(@)
   return undef;
 }
 
+my %hmdimmerPending = ();
+
+sub HMDimmer(@)
+{
+  my ($param) = @_;
+  my $cmd = $param->{cmd};
+  my $gad = $param->{gad};
+  my $gadval = $param->{gadval};
+
+  my $device = $param->{device};
+  my $reading = $param->{reading};
+  my $event = $param->{event};
+  
+  my @args = @{$param->{args}};
+  my $cache = $param->{cache};
+
+  if ($param->{cmd} eq 'get')
+  {
+    $event = ($reading eq 'state')?main::Value($device):main::ReadingsVal($device, $reading, '');
+    $param->{cmd} = 'send';
+  }
+  
+  if ($param->{cmd} eq 'send')
+  {
+    return 'done' if ($event =~ /^\d+$/);
+    if ($event =~ m/(.*):(.*)/) {
+      $event = $2;
+    }
+
+    if (exists $hmdimmerPending{$device})
+    {
+      return 'done' if ($1 ne 'stop');
+      delete $hmdimmerPending{$device};
+    }
+
+    if ($event eq 'off')
+    {
+      $event = 0;
+    } elsif ($event eq 'on') {
+      $event = 100;
+    }
+
+    $param->{gad} = $gad;
+    $param->{gadval} = $event;
+    $param->{gads} = [];
+    return undef;
+  }
+  elsif ($param->{cmd} eq 'rcv')
+  {
+    $param->{result} = $gadval;
+    $param->{results} = [];
+    $hmdimmerPending{$device} = 1;
+    return undef;
+  }
+  elsif ($param->{cmd} eq '?')
+  {
+    return 'usage: Direct';
+  }
+  return undef;
+}
 
 1;
